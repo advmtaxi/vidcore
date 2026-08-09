@@ -3,8 +3,17 @@ import { proxyUrls } from '../config.js';
 
 // Pre-initialize ProxyAgent instances for performance
 const agents = proxyUrls.map((url) => {
-  // undici ProxyAgent expects standard proxy URLs (e.g., http://user:pass@host:port)
-  const formattedUrl = url.includes('://') ? url : `http://${url}`;
+  let formattedUrl = url;
+  
+  // If format is IP:PORT:USER:PASS (4 parts separated by colon without protocol)
+  const parts = url.split(':');
+  if (parts.length === 4 && !url.includes('://')) {
+    const [ip, port, user, pass] = parts;
+    formattedUrl = `http://${user}:${pass}@${ip}:${port}`;
+  } else if (!url.includes('://')) {
+    formattedUrl = `http://${url}`;
+  }
+  
   return new ProxyAgent(formattedUrl);
 });
 
