@@ -38,18 +38,24 @@ function embedPath(kind: string, id: string, { season, episode }: { season?: str
   return kind === 'tv' ? `/tv/${id}/${season}/${episode}` : `/movie/${id}`;
 }
 
+import { fetch as undiciFetch, type Dispatcher } from 'undici';
+
 export async function scrapeEmbedPage(
   kind: string,
   id: string,
-  options: { season?: string; episode?: string } = {},
+  options: { season?: string; episode?: string; dispatcher?: Dispatcher } = {},
 ): Promise<EmbedSnapshot> {
   const path = embedPath(kind, id, options);
   const jar = new Map<string, string>();
-  const response = await fetch(`${siteOrigin}${path}`, {
+  
+  const reqInit = {
     headers: { ...scraperHeaders, accept: 'text/html,application/xhtml+xml' },
-  });
-  if (!response.ok) throw new Error(`page fetch failed: ${response.status} ${response.statusText}`);
-  collectCookies(response, jar);
+    dispatcher: options.dispatcher,
+  } as any;
+  
+  const response = await undiciFetch(`${siteOrigin}${path}`, reqInit);
+  if (response.status !== 200) throw new Error(`page fetch failed: ${response.status} ${response.statusText}`);
+  collectCookies(response as any, jar);
   const props = extractEmbedProps(await response.text());
   return {
     en: props.en,

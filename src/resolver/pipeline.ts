@@ -35,12 +35,14 @@ import { getRandomProxyId, getProxyAgent } from '../proxy/agents.js';
 
 export async function* resolvePlayback(request: ResolveRequest, origin: string) {
   const pid = getRandomProxyId();
+  const dispatcher = pid >= 0 ? getProxyAgent(pid) : undefined;
   
   let embed;
   try {
     embed = await scrapeEmbedPage(request.kind, request.id, {
       season: request.kind === 'tv' ? request.season : undefined,
       episode: request.kind === 'tv' ? request.episode : undefined,
+      dispatcher,
     });
   } catch (err) {
     const e = err as Error & { stage?: string };
@@ -50,7 +52,6 @@ export async function* resolvePlayback(request: ResolveRequest, origin: string) 
 
   yield { event: 'meta' as const, title: embed.meta.title, year: embed.meta.year };
 
-  const dispatcher = pid >= 0 ? getProxyAgent(pid) : undefined;
   const scraperFetch = createScraperFetch(embed.referer, embed.jar, dispatcher);
   let servers;
   try {
