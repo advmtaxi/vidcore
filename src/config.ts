@@ -2,8 +2,10 @@ export const port = Number(process.env.PORT) || 7860;
 
 export const host = process.env.HOST || '0.0.0.0';
 
-export const proxyUrl = process.env.PROXY_URL || '';
-
+export const proxyUrls = (process.env.PROXY_URL || '')
+  .split(/[\s,;]+/)
+  .map(u => u.trim())
+  .filter(Boolean);
 export const cdnUrl = process.env.CDN_URL || '';
 
 export const bunnySecurityKey = process.env.BUNNY_SECURITY_KEY || '';

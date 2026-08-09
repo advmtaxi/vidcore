@@ -1,8 +1,8 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { pipeline } from 'node:stream/promises';
-import { request } from 'undici';
+import { fetch as undiciFetch } from 'undici';
 import { userAgent, siteReferer, cdnUrl } from '../config.js';
-
+import { getProxyAgent } from './agents.js';
 const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Expose-Headers': 'Content-Length, Content-Range, Accept-Ranges',
@@ -14,8 +14,10 @@ const REQ_MS = 20000;
 
 
 
-export function proxyPlaylistUrl(origin: string, url: string, server: string) {
-  return `${origin}/api/hls?${new URLSearchParams({ url, server })}`;
+export function proxyPlaylistUrl(origin: string, url: string, server: string, pid?: number) {
+  const p = new URLSearchParams({ url, server });
+  if (pid !== undefined) p.set('pid', pid.toString());
+  return `${origin}/api/hls?${p}`;
 }
 
 function onMoon(url: string) {
@@ -40,7 +42,7 @@ function abs(uri: string, base: string) {
   return onMoon(new URL(uri, base).href);
 }
 
-function rewrite(text: string, base: string, origin: string, server: string) {
+function rewrite(text: string, base: string, origin: string, server: string, pid?: number) {
   return text
     .split('\n')
     .map((line) => {
@@ -48,15 +50,18 @@ function rewrite(text: string, base: string, origin: string, server: string) {
       if (!t) return line;
       if (t.startsWith('#')) {
         if (!t.includes('URI="')) return line;
-        return t.replace(/URI="([^"]+)"/g, (_, uri: string) => `URI="${proxyPlaylistUrl(origin, abs(uri, base), server)}"`);
+        return t.replace(/URI="([^"]+)"/g, (_, uri: string) => `URI="${proxyPlaylistUrl(origin, abs(uri, base), server, pid)}"`);
       }
-      return proxyPlaylistUrl(origin, abs(t, base), server);
+      return proxyPlaylistUrl(origin, abs(t, base), server, pid);
     })
     .join('\n');
 }
 
-async function upstream(url: string, headers: Record<string, string>) {
-  let res = await fetch(onMoon(url), { method: 'GET', headers, redirect: 'follow', signal: AbortSignal.timeout(REQ_MS) });
+async function upstream(url: string, headers: Record<string, string>, pid?: number) {
+  const dispatcher = pid !== undefined ? getProxyAgent(pid) : undefined;
+  const options = { method: 'GET', headers, redirect: 'follow', signal: AbortSignal.timeout(REQ_MS), dispatcher } as any;
+
+  let res = await undiciFetch(onMoon(url), options);
   if (res.status === 200 || res.status === 206) return res;
   
   if (res.body) await res.body.cancel();
@@ -65,7 +70,7 @@ async function upstream(url: string, headers: Record<string, string>) {
     throw new Error(`upstream failed: ${res.status}`);
   }
 
-  res = await fetch(onEdu(url), { method: 'GET', headers, redirect: 'follow', signal: AbortSignal.timeout(REQ_MS) });
+  res = await undiciFetch(onEdu(url), options);
   if (res.status !== 200 && res.status !== 206) {
     if (res.body) await res.body.cancel();
     throw new Error(`upstream edu failed: ${res.status}`);
@@ -79,7 +84,7 @@ export async function serveProxyHls(
   target: string,
   origin: string,
   server: string,
-  opts: { segmentType?: string } = {},
+  opts: { segmentType?: string; pid?: number } = {},
 ) {
   const headers: Record<string, string> = {
     'user-agent': userAgent,
@@ -89,11 +94,11 @@ export async function serveProxyHls(
   };
 
   const playlist = new URL(target).pathname.endsWith('.m3u8');
-  const up = await upstream(target, headers);
+  const up = await upstream(target, headers, opts.pid);
 
   if (playlist) {
     res.writeHead(200, { ...cors, 'Content-Type': 'application/vnd.apple.mpegurl' });
-    res.end(rewrite(await up.text(), target, origin, server));
+    res.end(rewrite(await up.text(), target, origin, server, opts.pid));
     return;
   }
 

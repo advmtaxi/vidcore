@@ -1,11 +1,10 @@
 import { createServer } from 'node:http';
-import { ProxyAgent, setGlobalDispatcher } from 'undici';
-import { port, host, proxyUrl } from './config.js';
+import { port, host } from './config.js';
 import { handleRequest } from './http/router.js';
+import { hasProxies } from './proxy/agents.js';
 
-if (proxyUrl) {
-  setGlobalDispatcher(new ProxyAgent(proxyUrl));
-  console.log(`proxy → ${proxyUrl.replace(/:\/\/.*@/, '://***@')}`);
+if (hasProxies()) {
+  console.log(`Loaded multiple proxy agents for rotation`);
 }
 
 const srv = createServer((req, res) => {

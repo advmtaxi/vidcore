@@ -22,19 +22,26 @@ export function collectCookies(response: Response, jar = new Map<string, string>
   return jar;
 }
 
-export function createScraperFetch(referer: string, jar: Map<string, string>) {
+import { fetch as undiciFetch, type Dispatcher } from 'undici';
+
+export function createScraperFetch(referer: string, jar: Map<string, string>, dispatcher?: Dispatcher) {
   return async (input: string, init: RequestInit = {}) => {
     const headers = mergeHeaders(referer, init.headers, jar);
     headers.set('accept', headers.get('accept') || '*/*');
     headers.set('x-requested-with', 'XMLHttpRequest');
-    const response = await fetch(absoluteUrl(input), {
+    
+    // Cast init because undici.fetch supports dispatcher but standard types might omit it
+    const reqInit = {
       ...init,
       method: init.method || 'POST',
       headers,
       body: init.body,
-    });
-    storeCookies(response, jar);
-    return response;
+      dispatcher,
+    } as any;
+    
+    const response = await undiciFetch(absoluteUrl(input), reqInit);
+    storeCookies(response as any, jar);
+    return response as any as Response;
   };
 }
 

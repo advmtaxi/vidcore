@@ -16,14 +16,14 @@ const DEFS: ProxyServerDef[] = [
 
 const byName = new Map(DEFS.map((d) => [d.name, d]));
 
-export function playbackForServer(origin: string, url: string, name: string) {
+export function playbackForServer(origin: string, url: string, name: string, pid?: number) {
   const def = byName.get(name);
   if (!def) return { url, proxy: false, referer: false };
   return {
     url,
     proxy: true,
     referer: def.referer,
-    play: proxyPlaylistUrl(origin, url, def.name),
+    play: proxyPlaylistUrl(origin, url, def.name, pid),
   };
 }
 

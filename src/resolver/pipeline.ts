@@ -15,6 +15,7 @@ async function unlockOne(
   server: CatalogServer,
   scraperFetch: ReturnType<typeof createScraperFetch>,
   origin: string,
+  pid: number,
 ) {
   const started = Date.now();
   try {
@@ -23,14 +24,18 @@ async function unlockOne(
       name: server.name,
       ok: true as const,
       ms: Date.now() - started,
-      ...playbackForServer(origin, config.url, server.name),
+      ...playbackForServer(origin, config.url, server.name, pid),
     };
   } catch {
     return { name: server.name, ok: false as const, ms: Date.now() - started };
   }
 }
 
+import { getRandomProxyId, getProxyAgent } from '../proxy/agents.js';
+
 export async function* resolvePlayback(request: ResolveRequest, origin: string) {
+  const pid = getRandomProxyId();
+  
   let embed;
   try {
     embed = await scrapeEmbedPage(request.kind, request.id, {
@@ -45,7 +50,8 @@ export async function* resolvePlayback(request: ResolveRequest, origin: string) 
 
   yield { event: 'meta' as const, title: embed.meta.title, year: embed.meta.year };
 
-  const scraperFetch = createScraperFetch(embed.referer, embed.jar);
+  const dispatcher = pid >= 0 ? getProxyAgent(pid) : undefined;
+  const scraperFetch = createScraperFetch(embed.referer, embed.jar, dispatcher);
   let servers;
   try {
     servers = await listCatalogServers(embed.en, scraperFetch);
@@ -65,7 +71,7 @@ export async function* resolvePlayback(request: ResolveRequest, origin: string) 
 
   let found = false;
   for (const server of targets) {
-    const result = await unlockOne(server, scraperFetch, origin);
+    const result = await unlockOne(server, scraperFetch, origin, pid);
     yield { event: 'server' as const, server: result };
     if (result.ok) found = true;
   }
