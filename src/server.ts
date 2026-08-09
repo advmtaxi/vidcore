@@ -1,10 +1,13 @@
 import { createServer } from 'node:http';
-import { port, host } from './config.js';
+import { port, host, proxyUrls } from './config.js';
 import { handleRequest } from './http/router.js';
-import { hasProxies } from './proxy/agents.js';
+import { initializeProxies, hasProxies } from './proxy/agents.js';
 
-if (hasProxies()) {
-  console.log(`Loaded multiple proxy agents for rotation`);
+const workingCount = await initializeProxies();
+if (workingCount > 0) {
+  console.log(`Loaded ${workingCount}/${proxyUrls.length} working proxy agents for rotation`);
+} else if (proxyUrls.length > 0) {
+  console.error(`WARNING: 0/${proxyUrls.length} proxies are working! All of them failed the boot test.`);
 }
 
 const srv = createServer((req, res) => {
