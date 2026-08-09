@@ -1,8 +1,7 @@
-import crypto from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { pipeline } from 'node:stream/promises';
 import { request } from 'undici';
-import { userAgent, siteReferer, cdnUrl, bunnySecurityKey } from '../config.js';
+import { userAgent, siteReferer, cdnUrl } from '../config.js';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -13,27 +12,7 @@ const MOON = 'moon.ironwallnet.net';
 const EDU = 'studyedu.site';
 const REQ_MS = 20000;
 
-function generateBunnyToken(urlStr: string) {
-  if (!bunnySecurityKey) return urlStr;
-  try {
-    const url = new URL(urlStr);
-    const expires = Math.floor(Date.now() / 1000) + 3600; // 1 hour expiration
-    const path = url.pathname;
-    const hashableBase = bunnySecurityKey + path + expires;
-    const token = crypto
-      .createHash('md5')
-      .update(hashableBase)
-      .digest('base64')
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=/g, '');
-    url.searchParams.set('token', token);
-    url.searchParams.set('expires', expires.toString());
-    return url.href;
-  } catch {
-    return urlStr;
-  }
-}
+
 
 export function proxyPlaylistUrl(origin: string, url: string, server: string) {
   return `${origin}/api/hls?${new URLSearchParams({ url, server })}`;
