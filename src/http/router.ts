@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { cdnUrl } from '../config.js';
 import { serveProxyRequest } from '../proxy/servers.js';
 import { parseResolveRequest } from '../resolver/request.js';
 import { resolvePlayback } from '../resolver/pipeline.js';
@@ -34,10 +35,11 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
   }
 
   const { pathname, searchParams, origin } = new URL(req.url ?? '/', `http://${req.headers.host}`);
+  const baseUrl = cdnUrl || origin;
 
   try {
     if (pathname === '/api/hls') {
-      await serveProxyRequest(req, res, searchParams, origin);
+      await serveProxyRequest(req, res, searchParams, baseUrl);
       return;
     }
 
@@ -52,7 +54,7 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
               season: searchParams.get('season'),
               episode: searchParams.get('episode'),
             }),
-            origin,
+            baseUrl,
           ),
         );
       } catch (err) {

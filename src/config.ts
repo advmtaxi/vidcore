@@ -4,6 +4,8 @@ export const host = process.env.HOST || '0.0.0.0';
 
 export const proxyUrl = process.env.PROXY_URL || '';
 
+export const cdnUrl = process.env.CDN_URL || '';
+
 export const siteOrigin = process.env.VIDCORE_ORIGIN || 'https://vidcore.net';
 
 export const siteReferer = `${siteOrigin}/`;
