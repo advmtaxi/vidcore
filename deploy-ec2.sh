@@ -13,7 +13,7 @@ echo "── Stopping old container (if any) ──"
 docker stop $NAME 2>/dev/null && docker rm $NAME 2>/dev/null || true
 
 echo "── Building image from GitHub ──"
-docker build --no-cache -t $NAME -f- . <<'DOCKERFILE'
+docker build --no-cache -t $NAME - <<'DOCKERFILE'
 FROM node:20-alpine AS build
 RUN apk add --no-cache git
 WORKDIR /app
