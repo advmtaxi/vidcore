@@ -1,0 +1,13 @@
+{
+  "ActionType": 2,
+  "ActionParameter1": "https://moon.ironwallnet.net/%{URL_1}",
+  "Description": "Proxy HLS Segments MOON",
+  "Enabled": true,
+  "Triggers": [
+    {
+      "Type": 0,
+      "PatternMatches": ["^https://vidcorea.b-cdn.net/proxy/moon/(.*)"],
+      "PatternMatchingType": 2
+    }
+  ]
+}

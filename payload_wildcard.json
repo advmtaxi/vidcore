@@ -1,0 +1,13 @@
+{
+  "ActionType": 2,
+  "ActionParameter1": "https://studyedu.site/%{URL_2}",
+  "Description": "ProxyEdu",
+  "Enabled": true,
+  "Triggers": [
+    {
+      "Type": 0,
+      "PatternMatches": ["*://vidcorea.b-cdn.net/proxy/edu/*"],
+      "PatternMatchingType": 0
+    }
+  ]
+}
