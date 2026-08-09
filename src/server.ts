@@ -1,5 +1,5 @@
 import { createServer } from 'node:http';
-import { port } from './config.js';
+import { port, host } from './config.js';
 import { handleRequest } from './http/router.js';
 
 const srv = createServer((req, res) => {
@@ -8,9 +8,18 @@ const srv = createServer((req, res) => {
 
 function boot() {
   const addr = srv.address();
-  const host = typeof addr === 'string' ? addr : `localhost:${addr?.port}`;
-  console.log(`http://${host}/`);
+  const h = typeof addr === 'string' ? addr : `${addr?.address}:${addr?.port}`;
+  console.log(`http://${h}/`);
 }
 
-if (process.env.HOST) srv.listen(port, process.env.HOST, boot);
-else srv.listen(port, boot);
+function shutdown(signal: string) {
+  console.log(`${signal} received, shutting down…`);
+  srv.close(() => process.exit(0));
+  setTimeout(() => process.exit(1), 5000).unref();
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
+
+srv.listen(port, host, boot);
+

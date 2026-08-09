@@ -9,8 +9,8 @@ const cors = {
   'Access-Control-Expose-Headers': 'Content-Length, Content-Range, Accept-Ranges',
 };
 
-const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 16 });
-const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 16 });
+const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 128 });
+const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 128 });
 
 const MOON = 'moon.ironwallnet.net';
 const EDU = 'studyedu.site';

@@ -19,7 +19,7 @@ if (existsSync(DIST)) {
 }
 
 // 2. Compile web TS → dist/
-execSync('npx tsc -p tsconfig.web.json', { stdio: 'inherit' });
+execSync('./node_modules/.bin/tsc -p tsconfig.web.json', { stdio: 'inherit' });
 
 // 3. Copy static assets into dist/
 mkdirSync(join(DIST, 'styles'), { recursive: true });

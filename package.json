@@ -2,8 +2,11 @@
   "name": "vidcore-hls-scraper-resolver",
   "type": "module",
   "scripts": {
-    "build:web": "rm -rf dist && tsc -p tsconfig.web.json && mkdir -p dist/styles && cp web/index.html dist/ && cp web/styles/app.css dist/styles/",
-    "start": "npm run build:web && lsof -ti:${PORT:-3000} | xargs kill -9 2>/dev/null; tsx src/server.ts"
+    "build:web": "node build.mjs",
+    "build:server": "tsc -p tsconfig.server.json",
+    "build": "npm run build:web && npm run build:server",
+    "serve": "node dist-server/server.js",
+    "start": "npm run build:web && tsx src/server.ts"
   },
   "engines": {
     "node": ">=20"
