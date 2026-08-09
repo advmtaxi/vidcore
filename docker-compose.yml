@@ -1,0 +1,16 @@
+services:
+  vidcore:
+    build: .
+    ports:
+      - "${EXTERNAL_PORT:-3000}:${PORT:-7860}"
+    environment:
+      - PORT=${PORT:-7860}
+      - HOST=0.0.0.0
+      - VIDCORE_ORIGIN=${VIDCORE_ORIGIN:-https://vidcore.net}
+      - USER_AGENT=${USER_AGENT:-}
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"

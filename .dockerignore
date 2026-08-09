@@ -1,0 +1,10 @@
+node_modules/
+dist/
+dist-server/
+tmp/
+.git/
+.gitignore
+.dockerignore
+.agents/
+*.md
+!README.md
