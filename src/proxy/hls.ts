@@ -36,18 +36,6 @@ function generateBunnyToken(urlStr: string) {
 }
 
 export function proxyPlaylistUrl(origin: string, url: string, server: string) {
-  if (cdnUrl && !url.includes('.m3u8')) {
-    try {
-      const u = new URL(url);
-      const cdn = new URL(cdnUrl);
-      if (u.hostname === MOON) cdn.pathname = `/proxy/moon${u.pathname}`;
-      else if (u.hostname === EDU) cdn.pathname = `/proxy/edu${u.pathname}`;
-      else cdn.pathname = `/proxy/other/${u.hostname}${u.pathname}`;
-      
-      for (const [k, v] of u.searchParams) cdn.searchParams.set(k, v);
-      return generateBunnyToken(cdn.href);
-    } catch {}
-  }
   return `${origin}/api/hls?${new URLSearchParams({ url, server })}`;
 }
 
