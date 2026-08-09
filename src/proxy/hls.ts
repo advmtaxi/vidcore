@@ -1,17 +1,13 @@
 import crypto from 'node:crypto';
-import http from 'node:http';
-import https from 'node:https';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { pipeline } from 'node:stream/promises';
+import { request } from 'undici';
 import { userAgent, siteReferer, cdnUrl, bunnySecurityKey } from '../config.js';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Expose-Headers': 'Content-Length, Content-Range, Accept-Ranges',
 };
-
-const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 128 });
-const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 128 });
 
 const MOON = 'moon.ironwallnet.net';
 const EDU = 'studyedu.site';
@@ -92,69 +88,22 @@ function rewrite(text: string, base: string, origin: string, server: string) {
     .join('\n');
 }
 
-function open(url: string, headers: Record<string, string>) {
-  const u = new URL(url);
-  const lib = u.protocol === 'https:' ? https : http;
-  return lib.request({
-    hostname: u.hostname,
-    port: u.port || undefined,
-    path: `${u.pathname}${u.search}`,
-    method: 'GET',
-    headers,
-    agent: u.protocol === 'https:' ? httpsAgent : httpAgent,
-    timeout: REQ_MS,
-  });
-}
-
-function onceUpstream(url: string, headers: Record<string, string>): Promise<IncomingMessage> {
-  return new Promise((resolve, reject) => {
-    const req = open(url, headers);
-    const fail = (err: Error) => {
-      req.destroy();
-      reject(err);
-    };
-    req.setTimeout(REQ_MS, () => fail(new Error('upstream timeout')));
-    req.on('error', fail);
-    req.on('response', (res) => {
-      if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        res.resume();
-        onceUpstream(new URL(res.headers.location, url).href, headers).then(resolve, reject);
-        return;
-      }
-      resolve(res);
-    });
-    req.end();
-  });
-}
-
 async function upstream(url: string, headers: Record<string, string>) {
-  const primary = onMoon(url);
-  try {
-    const res = await onceUpstream(primary, headers);
-    if (res.statusCode === 200 || res.statusCode === 206) return res;
-    res.resume();
-  } catch {
-  }
+  let res = await request(onMoon(url), { method: 'GET', headers, maxRedirections: 5, headersTimeout: REQ_MS });
+  if (res.statusCode === 200 || res.statusCode === 206) return res;
+  
+  if (res.body) await res.body.dump();
 
   if (!new URL(url).pathname.startsWith('/vd/')) {
-    throw new Error('upstream failed');
+    throw new Error(`upstream failed: ${res.statusCode}`);
   }
 
-  const res = await onceUpstream(onEdu(url), headers);
+  res = await request(onEdu(url), { method: 'GET', headers, maxRedirections: 5, headersTimeout: REQ_MS });
   if (res.statusCode !== 200 && res.statusCode !== 206) {
-    res.resume();
-    throw new Error(`upstream ${res.statusCode}`);
+    if (res.body) await res.body.dump();
+    throw new Error(`upstream edu failed: ${res.statusCode}`);
   }
   return res;
-}
-
-function readText(stream: IncomingMessage) {
-  return new Promise<string>((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    stream.on('data', (c: Buffer) => chunks.push(c));
-    stream.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
-    stream.on('error', reject);
-  });
 }
 
 export async function serveProxyHls(
@@ -174,34 +123,25 @@ export async function serveProxyHls(
 
   const playlist = new URL(target).pathname.endsWith('.m3u8');
   const up = await upstream(target, headers);
-  req.on('close', () => up.destroy());
 
   if (playlist) {
-    if (up.statusCode !== 200) {
-      up.resume();
-      throw new Error(`upstream ${up.statusCode}`);
-    }
     res.writeHead(200, { ...cors, 'Content-Type': 'application/vnd.apple.mpegurl' });
-    res.end(rewrite(await readText(up), target, origin, server));
+    res.end(rewrite(await up.body.text(), target, origin, server));
     return;
-  }
-
-  if (up.statusCode !== 200 && up.statusCode !== 206) {
-    up.resume();
-    throw new Error(`upstream ${up.statusCode}`);
   }
 
   const out: Record<string, string> = {
     ...cors,
-    'content-type': opts.segmentType || up.headers['content-type'] || 'application/octet-stream',
+    'content-type': opts.segmentType || (up.headers['content-type'] as string) || 'application/octet-stream',
   };
   for (const name of ['content-length', 'content-range', 'accept-ranges'] as const) {
     if (up.headers[name]) out[name] = String(up.headers[name]);
   }
-  res.writeHead(up.statusCode!, out);
+  res.writeHead(up.statusCode, out);
+  
   try {
-    await pipeline(up, res);
+    await pipeline(up.body, res);
   } catch {
-    up.destroy();
+    up.body.destroy();
   }
 }
