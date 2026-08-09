@@ -1,6 +1,12 @@
 import { createServer } from 'node:http';
-import { port, host } from './config.js';
+import { ProxyAgent, setGlobalDispatcher } from 'undici';
+import { port, host, proxyUrl } from './config.js';
 import { handleRequest } from './http/router.js';
+
+if (proxyUrl) {
+  setGlobalDispatcher(new ProxyAgent(proxyUrl));
+  console.log(`proxy → ${proxyUrl.replace(/:\/\/.*@/, '://***@')}`);
+}
 
 const srv = createServer((req, res) => {
   void handleRequest(req, res);

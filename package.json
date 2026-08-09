@@ -12,7 +12,8 @@
     "node": ">=20"
   },
   "dependencies": {
-    "hls.js": "^1.6.16"
+    "hls.js": "^1.6.16",
+    "undici": "^7.10.0"
   },
   "devDependencies": {
     "@types/node": "^25.2.3",

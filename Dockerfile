@@ -1,27 +1,26 @@
 # ── Stage 1: Build ────────────────────────────────────────────────
 FROM node:20-alpine AS build
 
+RUN apk add --no-cache git
+
 WORKDIR /app
 
-# Install dependencies (layer-cached when lockfile is stable)
-COPY package.json package-lock.json ./
+# Clone the repo from GitHub
+RUN git clone https://github.com/advmtaxi/vidcore.git .
+
+# Install all dependencies (including devDependencies for tsc)
 RUN npm ci
 
-# Copy source and configs
-COPY tsconfig.json tsconfig.web.json tsconfig.server.json build.mjs ./
-COPY src/ src/
-COPY web/ web/
-
 # Compile web UI → dist/  and  server TS → dist-server/
-RUN node build.mjs && npx tsc -p tsconfig.server.json
+RUN node build.mjs && ./node_modules/.bin/tsc -p tsconfig.server.json
 
 # ── Stage 2: Production runtime ──────────────────────────────────
 FROM node:20-alpine
 
 WORKDIR /app
 
-# Install only production dependencies
-COPY package.json package-lock.json ./
+# Copy package files and install production-only deps
+COPY --from=build /app/package.json /app/package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
 # Copy compiled output from build stage

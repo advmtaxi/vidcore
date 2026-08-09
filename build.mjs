@@ -19,7 +19,8 @@ if (existsSync(DIST)) {
 }
 
 // 2. Compile web TS → dist/
-execSync('./node_modules/.bin/tsc -p tsconfig.web.json', { stdio: 'inherit' });
+const tsc = join('node_modules', '.bin', process.platform === 'win32' ? 'tsc.cmd' : 'tsc');
+execSync(`${tsc} -p tsconfig.web.json`, { stdio: 'inherit' });
 
 // 3. Copy static assets into dist/
 mkdirSync(join(DIST, 'styles'), { recursive: true });
