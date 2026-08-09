@@ -56,19 +56,19 @@ function rewrite(text: string, base: string, origin: string, server: string) {
 }
 
 async function upstream(url: string, headers: Record<string, string>) {
-  let res = await request(onMoon(url), { method: 'GET', headers, maxRedirections: 5, headersTimeout: REQ_MS });
-  if (res.statusCode === 200 || res.statusCode === 206) return res;
+  let res = await fetch(onMoon(url), { method: 'GET', headers, redirect: 'follow', signal: AbortSignal.timeout(REQ_MS) });
+  if (res.status === 200 || res.status === 206) return res;
   
-  if (res.body) await res.body.dump();
+  if (res.body) await res.body.cancel();
 
   if (!new URL(url).pathname.startsWith('/vd/')) {
-    throw new Error(`upstream failed: ${res.statusCode}`);
+    throw new Error(`upstream failed: ${res.status}`);
   }
 
-  res = await request(onEdu(url), { method: 'GET', headers, maxRedirections: 5, headersTimeout: REQ_MS });
-  if (res.statusCode !== 200 && res.statusCode !== 206) {
-    if (res.body) await res.body.dump();
-    throw new Error(`upstream edu failed: ${res.statusCode}`);
+  res = await fetch(onEdu(url), { method: 'GET', headers, redirect: 'follow', signal: AbortSignal.timeout(REQ_MS) });
+  if (res.status !== 200 && res.status !== 206) {
+    if (res.body) await res.body.cancel();
+    throw new Error(`upstream edu failed: ${res.status}`);
   }
   return res;
 }
@@ -93,22 +93,24 @@ export async function serveProxyHls(
 
   if (playlist) {
     res.writeHead(200, { ...cors, 'Content-Type': 'application/vnd.apple.mpegurl' });
-    res.end(rewrite(await up.body.text(), target, origin, server));
+    res.end(rewrite(await up.text(), target, origin, server));
     return;
   }
 
   const out: Record<string, string> = {
     ...cors,
-    'content-type': opts.segmentType || (up.headers['content-type'] as string) || 'application/octet-stream',
+    'content-type': opts.segmentType || up.headers.get('content-type') || 'application/octet-stream',
   };
-  for (const name of ['content-length', 'content-range', 'accept-ranges'] as const) {
-    if (up.headers[name]) out[name] = String(up.headers[name]);
+  for (const name of ['content-length', 'content-range', 'accept-ranges']) {
+    const val = up.headers.get(name);
+    if (val) out[name] = val;
   }
-  res.writeHead(up.statusCode, out);
+  res.writeHead(up.status, out);
   
   try {
-    await pipeline(up.body, res);
+    if (up.body) await pipeline(up.body as any, res);
+    else res.end();
   } catch {
-    up.body.destroy();
+    if (up.body) await up.body.cancel();
   }
 }
